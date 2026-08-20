@@ -39,6 +39,9 @@ export default function App() {
   const [rows, setRows] = useState([])
   const [signature, setSignature] = useState('')
   const [search, setSearch] = useState('')
+  // Filtrer ~900 cartes est coûteux (montage/démontage DOM) ; on découple la
+  // saisie (instantanée) du recalcul de la grille pour que taper reste fluide.
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filter, setFilter] = useState('all') // 'all' | 'noImage' | 'removed' | 'confirmed'
   const [mode, setMode] = useState('shared') // 'shared' (API partagée) | 'manual' (fichier local)
 
@@ -55,6 +58,11 @@ export default function App() {
   const modeRef = useRef('shared')
 
   const products = useMemo(() => (rows.length ? groupRowsByHandle(rows) : []), [rows])
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 250)
+    return () => clearTimeout(id)
+  }, [search])
 
   const stopSync = useCallback(() => {
     if (stopPolling.current) {
@@ -270,13 +278,13 @@ export default function App() {
     } else {
       list = unconfirmedProducts
     }
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase()
       list = list.filter((p) => p.title.toLowerCase().includes(q) || p.handle.toLowerCase().includes(q))
     }
     return list
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, unconfirmedProducts, search, filter, getRemovedVersion()])
+  }, [products, unconfirmedProducts, debouncedSearch, filter, getRemovedVersion()])
 
   if (status === 'idle' || status === 'loading') {
     return (
