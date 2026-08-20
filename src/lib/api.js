@@ -64,6 +64,23 @@ export async function pushRemoved(handle, removed) {
   })
 }
 
+/** Récupère la liste des produits dont le prix a été vérifié/confirmé. */
+export async function fetchConfirmed() {
+  const res = await fetch(apiUrl('/api/confirmed'), { cache: 'no-store' })
+  if (!res.ok) throw new Error('Impossible de récupérer les produits confirmés depuis le serveur.')
+  const data = await res.json()
+  return data.confirmed || []
+}
+
+/** Confirme (ou annule la confirmation d') un produit. */
+export async function pushConfirmed(handle, confirmed) {
+  await fetch(apiUrl('/api/confirmed'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ handle, confirmed }),
+  })
+}
+
 /**
  * Interroge le serveur à intervalle régulier (synchronisation "quasi temps
  * réel" par polling, fiable même derrière un hébergement mutualisé cPanel).
@@ -93,4 +110,8 @@ export function pollPrices(onChange, intervalMs = 4000) {
 
 export function pollRemoved(onChange, intervalMs = 4000) {
   return poll(fetchRemoved, onChange, intervalMs)
+}
+
+export function pollConfirmed(onChange, intervalMs = 4000) {
+  return poll(fetchConfirmed, onChange, intervalMs)
 }

@@ -2,6 +2,7 @@ import { memo, useCallback, useSyncExternalStore } from 'react'
 import { formatPrice, variantLabel } from '../lib/csv'
 import { getPrice, setPrice, subscribe } from '../lib/priceStore'
 import { isRemoved, setRemovedLocal, subscribeRemoved } from '../lib/removedStore'
+import { isConfirmed, setConfirmedLocal, subscribeConfirmed } from '../lib/confirmedStore'
 
 function PriceField({ rowIndex, label, onCommit }) {
   const value = useSyncExternalStore(
@@ -60,12 +61,16 @@ function useAllFilled(variants) {
   return useSyncExternalStore(subscribeAll, getSnapshot)
 }
 
-function ProductCard({ product, onPriceChange, onRemovedChange }) {
+function ProductCard({ product, onPriceChange, onRemovedChange, onConfirmedChange }) {
   const { title, image, variants, handle } = product
   const allFilled = useAllFilled(variants)
   const removed = useSyncExternalStore(
     useCallback((cb) => subscribeRemoved(handle, cb), [handle]),
     useCallback(() => isRemoved(handle), [handle])
+  )
+  const confirmed = useSyncExternalStore(
+    useCallback((cb) => subscribeConfirmed(handle, cb), [handle]),
+    useCallback(() => isConfirmed(handle), [handle])
   )
 
   const toggleRemoved = () => {
@@ -74,8 +79,14 @@ function ProductCard({ product, onPriceChange, onRemovedChange }) {
     onRemovedChange(handle, next)
   }
 
+  const toggleConfirmed = () => {
+    const next = !confirmed
+    setConfirmedLocal(handle, next)
+    onConfirmedChange(handle, next)
+  }
+
   return (
-    <div className={`card ${allFilled ? 'card--done' : ''} ${removed ? 'card--removed' : ''}`}>
+    <div className={`card ${allFilled ? 'card--done' : ''} ${removed ? 'card--removed' : ''} ${confirmed ? 'card--confirmed' : ''}`}>
       <div className="card__image">
         {image ? (
           <img src={image} alt={title || handle} loading="lazy" />
@@ -101,6 +112,10 @@ function ProductCard({ product, onPriceChange, onRemovedChange }) {
         ) : (
           <p className="card__no-variant">Aucune ligne de variante détectée.</p>
         )}
+
+        <button type="button" className="card__confirm-btn" onClick={toggleConfirmed}>
+          {confirmed ? '✓ Prix confirmé — annuler' : 'Confirmer le prix'}
+        </button>
 
         <button type="button" className="card__remove-btn" onClick={toggleRemoved}>
           {removed ? 'Annuler le signalement' : 'Enlever — pas encore dans le store'}

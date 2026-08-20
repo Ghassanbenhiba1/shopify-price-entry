@@ -2,6 +2,7 @@ const FILTERS = [
   { value: 'all', label: 'Tous' },
   { value: 'noImage', label: 'Sans image' },
   { value: 'removed', label: 'À enlever' },
+  { value: 'confirmed', label: 'Confirmé' },
 ]
 
 export default function Toolbar({
@@ -14,11 +15,12 @@ export default function Toolbar({
   totalCount,
   noImageCount,
   removedCount,
+  confirmedCount,
   onExport,
   onChangeFile,
   onClearStorage,
 }) {
-  const counts = { all: totalCount, noImage: noImageCount, removed: removedCount }
+  const counts = { all: totalCount, noImage: noImageCount, removed: removedCount, confirmed: confirmedCount }
 
   return (
     <header className="toolbar">

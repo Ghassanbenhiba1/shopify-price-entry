@@ -7,6 +7,13 @@ import { saveSession, loadSession, savePrices, loadPrices, getLastSignature, cle
 import { initPrices, mergeRemotePrices, snapshotAllPrices } from './lib/priceStore'
 import { initRemoved, mergeRemoteRemoved, isRemoved, subscribeAnyRemoved, getRemovedVersion } from './lib/removedStore'
 import {
+  initConfirmed,
+  mergeRemoteConfirmed,
+  isConfirmed,
+  subscribeAnyConfirmed,
+  getConfirmedVersion,
+} from './lib/confirmedStore'
+import {
   fetchProducts,
   fetchPrices,
   pushPrice,
@@ -14,6 +21,9 @@ import {
   fetchRemoved,
   pushRemoved,
   pollRemoved,
+  fetchConfirmed,
+  pushConfirmed,
+  pollConfirmed,
   uploadProducts,
   apiEnabled,
 } from './lib/api'
@@ -29,16 +39,19 @@ export default function App() {
   const [rows, setRows] = useState([])
   const [signature, setSignature] = useState('')
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('all') // 'all' | 'noImage' | 'removed'
+  const [filter, setFilter] = useState('all') // 'all' | 'noImage' | 'removed' | 'confirmed'
   const [mode, setMode] = useState('shared') // 'shared' (API partagée) | 'manual' (fichier local)
 
   // Se re-rend quand un produit est signalé/désignalé "pas encore dans le store",
   // pour que le filtre et les compteurs restent à jour.
   useSyncExternalStore(subscribeAnyRemoved, getRemovedVersion)
+  // Idem pour les confirmations de prix.
+  useSyncExternalStore(subscribeAnyConfirmed, getConfirmedVersion)
 
   const saveTimer = useRef(null)
   const stopPolling = useRef(null)
   const stopPollingRemoved = useRef(null)
+  const stopPollingConfirmed = useRef(null)
   const modeRef = useRef('shared')
 
   const products = useMemo(() => (rows.length ? groupRowsByHandle(rows) : []), [rows])
@@ -51,6 +64,10 @@ export default function App() {
     if (stopPollingRemoved.current) {
       stopPollingRemoved.current()
       stopPollingRemoved.current = null
+    }
+    if (stopPollingConfirmed.current) {
+      stopPollingConfirmed.current()
+      stopPollingConfirmed.current = null
     }
   }, [])
 
@@ -68,6 +85,8 @@ export default function App() {
       initPrices(prices)
       const removedHandles = await fetchRemoved()
       initRemoved(removedHandles)
+      const confirmedHandles = await fetchConfirmed()
+      initConfirmed(confirmedHandles)
       localStorage.removeItem(MANUAL_FLAG_KEY)
       modeRef.current = 'shared'
       setMode('shared')
@@ -79,6 +98,7 @@ export default function App() {
       if (apiEnabled) {
         stopPolling.current = pollPrices((remotePrices) => mergeRemotePrices(remotePrices))
         stopPollingRemoved.current = pollRemoved((remoteRemoved) => mergeRemoteRemoved(remoteRemoved))
+        stopPollingConfirmed.current = pollConfirmed((remoteConfirmed) => mergeRemoteConfirmed(remoteConfirmed))
       }
     } catch (err) {
       setErrorMsg(err.message || 'Impossible de contacter le serveur.')
@@ -125,6 +145,7 @@ export default function App() {
       const mergedPrices = { ...csvPrices, ...(existingPrices || {}) }
       initPrices(mergedPrices)
       initRemoved([])
+      initConfirmed([])
       await saveSession(sig, file.name, h, r)
       await savePrices(sig, mergedPrices)
       localStorage.setItem(MANUAL_FLAG_KEY, '1')
@@ -194,6 +215,12 @@ export default function App() {
     }
   }, [])
 
+  const handleConfirmedChange = useCallback((handle, value) => {
+    if (modeRef.current === 'shared' && apiEnabled) {
+      pushConfirmed(handle, value)
+    }
+  }, [])
+
   const handleClearStorage = useCallback(async () => {
     await clearAll()
     localStorage.removeItem(MANUAL_FLAG_KEY)
@@ -214,20 +241,42 @@ export default function App() {
     URL.revokeObjectURL(url)
   }, [headers, rows, fileName, mode])
 
-  const noImageCount = useMemo(() => products.filter((p) => !p.image).length, [products])
-  const removedCount = useMemo(() => products.filter((p) => isRemoved(p.handle)).length, [products, getRemovedVersion()])
+  // Les produits confirmés sortent des vues "Tous" / "Sans image" / "À enlever"
+  // pour ne laisser que ce qui reste à vérifier ; ils restent visibles via "Confirmé".
+  const unconfirmedProducts = useMemo(
+    () => products.filter((p) => !isConfirmed(p.handle)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [products, getConfirmedVersion()]
+  )
+  const confirmedCount = useMemo(
+    () => products.length - unconfirmedProducts.length,
+    [products, unconfirmedProducts]
+  )
+  const noImageCount = useMemo(() => unconfirmedProducts.filter((p) => !p.image).length, [unconfirmedProducts])
+  const removedCount = useMemo(
+    () => unconfirmedProducts.filter((p) => isRemoved(p.handle)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [unconfirmedProducts, getRemovedVersion()]
+  )
 
   const filteredProducts = useMemo(() => {
-    let list = products
-    if (filter === 'noImage') list = list.filter((p) => !p.image)
-    else if (filter === 'removed') list = list.filter((p) => isRemoved(p.handle))
+    let list
+    if (filter === 'confirmed') {
+      list = products.filter((p) => isConfirmed(p.handle))
+    } else if (filter === 'noImage') {
+      list = unconfirmedProducts.filter((p) => !p.image)
+    } else if (filter === 'removed') {
+      list = unconfirmedProducts.filter((p) => isRemoved(p.handle))
+    } else {
+      list = unconfirmedProducts
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter((p) => p.title.toLowerCase().includes(q) || p.handle.toLowerCase().includes(q))
     }
     return list
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, search, filter, getRemovedVersion()])
+  }, [products, unconfirmedProducts, search, filter, getRemovedVersion()])
 
   if (status === 'idle' || status === 'loading') {
     return (
@@ -249,9 +298,10 @@ export default function App() {
         onSearchChange={setSearch}
         filter={filter}
         onFilterChange={setFilter}
-        totalCount={products.length}
+        totalCount={unconfirmedProducts.length}
         noImageCount={noImageCount}
         removedCount={removedCount}
+        confirmedCount={confirmedCount}
         onExport={handleExport}
         onChangeFile={() => {
           stopSync()
@@ -269,6 +319,7 @@ export default function App() {
             product={product}
             onPriceChange={handlePriceChange}
             onRemovedChange={handleRemovedChange}
+            onConfirmedChange={handleConfirmedChange}
           />
         ))}
       </main>

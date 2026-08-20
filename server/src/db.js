@@ -30,6 +30,12 @@ export async function ensureSchema() {
       removed_at TIMESTAMP NOT NULL DEFAULT now()
     )
   `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS confirmed_products (
+      handle VARCHAR(255) PRIMARY KEY,
+      confirmed_at TIMESTAMP NOT NULL DEFAULT now()
+    )
+  `)
 }
 
 /** Liste des handles signalés comme "pas encore dans le store". */
@@ -44,6 +50,21 @@ export async function setRemoved(handle, removed) {
     await pool.query('INSERT INTO removed_products (handle) VALUES ($1) ON CONFLICT (handle) DO NOTHING', [handle])
   } else {
     await pool.query('DELETE FROM removed_products WHERE handle = $1', [handle])
+  }
+}
+
+/** Liste des handles dont le prix a été vérifié/confirmé. */
+export async function getConfirmedHandles() {
+  const { rows } = await pool.query('SELECT handle FROM confirmed_products')
+  return rows.map((r) => r.handle)
+}
+
+/** Confirme ou annule la confirmation d'un produit (par handle). */
+export async function setConfirmed(handle, confirmed) {
+  if (confirmed) {
+    await pool.query('INSERT INTO confirmed_products (handle) VALUES ($1) ON CONFLICT (handle) DO NOTHING', [handle])
+  } else {
+    await pool.query('DELETE FROM confirmed_products WHERE handle = $1', [handle])
   }
 }
 

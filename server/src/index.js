@@ -5,6 +5,7 @@ import { ensureSchema } from './db.js'
 import productsRouter from './routes/products.js'
 import pricesRouter from './routes/prices.js'
 import removedRouter from './routes/removed.js'
+import confirmedRouter from './routes/confirmed.js'
 
 const app = express()
 
@@ -21,6 +22,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }))
 app.use('/api', productsRouter)
 app.use('/api', pricesRouter)
 app.use('/api', removedRouter)
+app.use('/api', confirmedRouter)
 
 const port = process.env.PORT || 3001
 

@@ -283,6 +283,33 @@ button {
   opacity: 0.75;
 }
 
+.card--confirmed {
+  border-color: var(--green);
+  background: var(--green-light);
+}
+
+.card__confirm-btn {
+  border: 1px solid var(--green);
+  background: #fff;
+  color: var(--green-dark);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.card__confirm-btn:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+.card--confirmed .card__confirm-btn {
+  background: var(--green);
+  color: #fff;
+}
+
 .card__removed-tag {
   margin: 0;
   font-size: 12px;
@@ -497,7 +524,8 @@ button {
     font-size: 13px;
   }
 
-  .card__remove-btn {
+  .card__remove-btn,
+  .card__confirm-btn {
     min-height: 38px;
     padding: 8px 10px;
     font-size: 13px;
