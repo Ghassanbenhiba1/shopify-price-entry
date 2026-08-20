@@ -486,6 +486,22 @@ button {
     font-size: 16px; /* évite le zoom automatique de Safari iOS au focus */
     padding: 8px 8px;
   }
+
+  .toolbar__filters {
+    gap: 6px;
+  }
+
+  .filter-chip {
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .card__remove-btn {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 420px) {
