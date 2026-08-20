@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.log
+.DS_Store
+.env
+
+# Contient un mot de passe MySQL en clair (usage local ponctuel uniquement).
+reset-mysql-root.ps1
+
+# Doublon de server/data/products_export.csv, pas nécessaire dans le dépôt.
+/products_export_1*.csv
