@@ -30,6 +30,9 @@ import {
 
 const SAVE_DEBOUNCE_MS = 500
 const MANUAL_FLAG_KEY = 'priceapp:manualFile'
+// Afficher ~900 cartes d'un coup fige le navigateur à chaque changement de
+// filtre (montage/démontage massif du DOM) ; on les révèle par lots au scroll.
+const CARDS_PER_PAGE = 60
 
 export default function App() {
   const [status, setStatus] = useState('idle') // idle | loading | ready
@@ -50,6 +53,9 @@ export default function App() {
   useSyncExternalStore(subscribeAnyRemoved, getRemovedVersion)
   // Idem pour les confirmations de prix.
   useSyncExternalStore(subscribeAnyConfirmed, getConfirmedVersion)
+
+  const [visibleCount, setVisibleCount] = useState(CARDS_PER_PAGE)
+  const sentinelRef = useRef(null)
 
   const saveTimer = useRef(null)
   const stopPolling = useRef(null)
@@ -286,6 +292,33 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, unconfirmedProducts, debouncedSearch, filter, getRemovedVersion()])
 
+  // Un nouveau filtre/recherche repart d'un premier lot de cartes.
+  useEffect(() => {
+    setVisibleCount(CARDS_PER_PAGE)
+  }, [filter, debouncedSearch])
+
+  // Révèle un lot supplémentaire quand la sentinelle en bas de grille approche
+  // de l'écran, plutôt que de monter toutes les cartes filtrées d'un coup.
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((v) => v + CARDS_PER_PAGE)
+        }
+      },
+      { rootMargin: '600px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const visibleProducts = useMemo(
+    () => filteredProducts.slice(0, visibleCount),
+    [filteredProducts, visibleCount]
+  )
+
   if (status === 'idle' || status === 'loading') {
     return (
       <Dropzone
@@ -321,7 +354,7 @@ export default function App() {
         {filteredProducts.length === 0 && (
           <p className="empty-state">Aucun produit ne correspond à ce filtre.</p>
         )}
-        {filteredProducts.map((product) => (
+        {visibleProducts.map((product) => (
           <ProductCard
             key={product.handle}
             product={product}
@@ -331,6 +364,7 @@ export default function App() {
           />
         ))}
       </main>
+      <div ref={sentinelRef} className="scroll-sentinel" />
     </div>
   )
 }

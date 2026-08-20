@@ -254,6 +254,10 @@ button {
   padding: 20px;
 }
 
+.scroll-sentinel {
+  height: 1px;
+}
+
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
